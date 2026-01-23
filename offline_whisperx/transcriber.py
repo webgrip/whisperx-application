@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -29,13 +30,74 @@ class Transcriber:
 
     def _get_asr_model(self):
         if self._asr_model is None:
+            whisper_model = self._resolve_whisper_model_spec(self.cfg.whisper_model)
             self._asr_model = self.whisperx.load_model(
-                str(self.cfg.whisper_model),
+                whisper_model,
                 device=self.device,
                 compute_type=self.compute_type,
                 language=self.cfg.language,
             )
         return self._asr_model
+
+    def _resolve_whisper_model_spec(self, spec: Path) -> str:
+        """Resolve configured Whisper model.
+
+        WhisperX ultimately passes this to faster-whisper. If the value is intended to
+        be a local directory but doesn't exist, faster-whisper falls back to treating it
+        as a Hugging Face repo id and fails validation (e.g. '/app/models/...').
+
+        We treat absolute paths (and obvious path-like values) as local paths and:
+        - use them if they exist
+        - otherwise auto-pick an available `faster-whisper-*` directory under the same parent
+        - otherwise raise a clear error
+        """
+
+        spec_str = str(spec)
+        p = Path(spec_str)
+
+        looks_like_path = os.path.isabs(spec_str) or spec_str.startswith("./") or spec_str.startswith("../")
+        if looks_like_path:
+            if p.exists():
+                return str(p)
+
+            parent = p.parent
+            try:
+                candidates = [c for c in parent.glob("faster-whisper-*") if c.is_dir()]
+            except Exception:
+                candidates = []
+
+            if candidates:
+                preferred = [
+                    "faster-whisper-large-v3",
+                    "faster-whisper-large-v2",
+                    "faster-whisper-large",
+                    "faster-whisper-medium",
+                    "faster-whisper-small",
+                    "faster-whisper-base",
+                    "faster-whisper-tiny",
+                ]
+                by_name = {c.name: c for c in candidates}
+                for name in preferred:
+                    if name in by_name:
+                        return str(by_name[name])
+                return str(sorted(candidates)[0])
+
+            available = []
+            if parent.exists():
+                try:
+                    available = sorted([c.name for c in parent.iterdir() if c.is_dir()])
+                except Exception:
+                    available = []
+
+            raise FileNotFoundError(
+                "Whisper model directory not found. "
+                f"Configured WHISPER_MODEL={spec_str!r} does not exist. "
+                f"Looked for 'faster-whisper-*' under {str(parent)!r}. "
+                f"Available subdirectories: {available}"
+            )
+
+        # Not an obvious path: treat as a model id like 'Systran/faster-whisper-small'.
+        return spec_str
 
     def _get_align_model(self, language: Optional[str], align_model_path: Path):
         language_code = language or "en"

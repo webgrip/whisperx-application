@@ -33,6 +33,17 @@ export HF_TOKEN="hf_..."
 python scripts/prefetch_pyannote_models.py --models-dir ./models --hf-token "$HF_TOKEN"
 ```
 
+Or (recommended) download via Docker so you don't need a host Python environment:
+
+```bash
+# Whisper + alignment + pyannote (requires HF_TOKEN)
+export HF_TOKEN="hf_..."
+make docker-models
+
+# Override which Whisper model you want:
+# make docker-models WHISPER_REPO=Systran/faster-whisper-base
+```
+
 Expected outputs:
 
 - `models/faster-whisper-*/` (directory)
@@ -55,6 +66,8 @@ rsync -a models/ user@vm:/opt/whisperx/models/
 ```
 
 ## Run as a service (LAN)
+
+Note: `WHISPER_MODEL` should point at the *directory* you downloaded under `models/` (e.g. `/app/models/faster-whisper-small` or `/app/models/faster-whisper-base`). If you downloaded `small` but the env is set to `base` (or vice-versa), the worker will try to auto-detect an available `faster-whisper-*` directory under `/app/models`.
 
 This stack is:
 

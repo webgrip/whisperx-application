@@ -15,6 +15,13 @@ If you want the detailed model download + ops runbook, see: RUNBOOK.md.
 
 ## Run (service on your LAN)
 
+Download models (on an online machine):
+
+```bash
+export HF_TOKEN="hf_..."   # only needed if you want diarization
+make docker-models
+```
+
 Start the durable queue + API + GPU worker:
 
 ```bash
