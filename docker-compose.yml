@@ -24,9 +24,6 @@ x-common-env: &common_env
   UPLOADS_DIR: /app/data/uploads
   JOBS_DIR: /app/output/jobs
 
-networks:
-  backend:
-
 volumes:
   redis_data:
 
@@ -40,8 +37,6 @@ services:
       - "yes"
     volumes:
       - redis_data:/data
-    networks:
-      - backend
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -54,10 +49,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-    networks:
-      - backend
     ports:
-      - "0.0.0.0:8000:8000"
+      - "8000:8000"
     volumes: *common_volumes
     environment:
       <<: *common_env
@@ -92,8 +85,6 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-    networks:
-      - backend
     deploy: {}
     gpus:
       - device: "all"
