@@ -52,6 +52,8 @@ services:
     ports:
       - "8000:8000"
     volumes: *common_volumes
+    env_file:
+      - .env
     environment:
       <<: *common_env
       # API is lightweight; keep it CPU-only.
@@ -89,6 +91,8 @@ services:
     gpus:
       - device: "all"
     volumes: *common_volumes
+    env_file:
+      - .env
     environment:
       <<: *common_env
       DEVICE: cuda
@@ -104,6 +108,8 @@ services:
     gpus:
       - device: "all"
     volumes: *common_volumes
+    env_file:
+      - .env
     environment:
       <<: *common_env
       DEVICE: cuda
