@@ -1,0 +1,123 @@
+name: whisperx
+
+x-common-volumes: &common_volumes
+  - ./models:/app/models
+  - ./data:/app/data
+  - ./output:/app/output
+
+x-common-env: &common_env
+  OFFLINE_WHISPERX_ENFORCE_OFFLINE: "1"
+  HF_HOME: /app/models/hf_cache
+  TRANSFORMERS_CACHE: /app/models/hf_cache
+  HF_HUB_CACHE: /app/models/hf_cache
+
+  # Queue
+  REDIS_URL: redis://redis:6379/0
+  QUEUE_NAME: whisperx
+
+  # Model paths
+  WHISPER_MODEL: /app/models/faster-whisper-base
+  ALIGN_MODEL: /app/models/wav2vec2-base-960h
+  PYANNOTE_CONFIG: /app/config/pyannote_diarization_config.yaml
+
+  # IO layout
+  OUTDIR: /app/output
+  UPLOADS_DIR: /app/data/uploads
+  JOBS_DIR: /app/output/jobs
+
+networks:
+  backend:
+    internal: true
+
+volumes:
+  redis_data:
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  whisperx-api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+    ports:
+      - "8000:8000"
+    volumes: *common_volumes
+    environment:
+      <<: *common_env
+      # API is lightweight; keep it CPU-only.
+      DEVICE: cpu
+      COMPUTE_TYPE: auto
+    command:
+      - gunicorn
+      - -k
+      - uvicorn.workers.UvicornWorker
+      - -w
+      - "2"
+      - -b
+      - 0.0.0.0:8000
+      - --access-logfile
+      - "-"
+      - --error-logfile
+      - "-"
+      - --timeout
+      - "300"
+      - offline_whisperx.api.main:app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  whisperx-worker:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+    deploy: {}
+    gpus:
+      - device: "all"
+    volumes: *common_volumes
+    environment:
+      <<: *common_env
+      DEVICE: cuda
+      COMPUTE_TYPE: float16
+    # IMPORTANT: escape with $$ so Compose does not interpolate.
+    command:
+      ["sh", "-lc", 'python -m rq worker -u "$$REDIS_URL" "$$QUEUE_NAME"']
+
+  whisperx-cli:
+    build: .
+    profiles: ["cli"]
+    restart: "no"
+    deploy: {}
+    gpus:
+      - device: "all"
+    volumes: *common_volumes
+    environment:
+      <<: *common_env
+      DEVICE: cuda
+      COMPUTE_TYPE: float16
+    command: ["offline-whisperx", "--help"]

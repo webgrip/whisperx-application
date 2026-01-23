@@ -1,0 +1,19 @@
+.git
+.gitignore
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.env
+.DS_Store
+
+# Large/local runtime artifacts (mounted at runtime)
+models/
+data/
+output/
+
+# Editor
+.vscode/

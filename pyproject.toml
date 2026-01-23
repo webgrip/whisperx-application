@@ -1,0 +1,19 @@
+[project]
+name = "offline-whisperx-starter"
+version = "0.1.0"
+description = "Starter template for running WhisperX (incl. diarization) fully offline once models are pre-fetched."
+requires-python = ">=3.10"
+readme = "README.md"
+license = { file = "LICENSE" }
+
+[project.scripts]
+offline-whisperx = "offline_whisperx.cli:main"
+
+[tool.setuptools]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["offline_whisperx*"]
+
+[tool.black]
+line-length = 100
