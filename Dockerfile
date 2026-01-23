@@ -6,7 +6,23 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # ffmpeg needed for decoding most audio/video formats
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg git curl ca-certificates tini \
+ && apt-get install -y --no-install-recommends \
+	ffmpeg \
+	git \
+	curl \
+	ca-certificates \
+	tini \
+	# Build deps (required for PyAV when no wheel is available)
+	pkg-config \
+	build-essential \
+	# FFmpeg headers for PyAV
+	libavcodec-dev \
+	libavdevice-dev \
+	libavfilter-dev \
+	libavformat-dev \
+	libavutil-dev \
+	libswresample-dev \
+	libswscale-dev \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
