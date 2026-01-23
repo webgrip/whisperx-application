@@ -10,6 +10,8 @@ If you want the detailed model download + ops runbook, see: RUNBOOK.md.
 - NVIDIA driver + NVIDIA Container Toolkit (GPU worker)
 - Models staged on the host and mounted to `/app/models`
   - Download instructions: RUNBOOK.md
+- If running on a VM: allow inbound TCP/8000 (security group + VM firewall)
+- Ensure bind-mounted folders are writable by the container user (UID 10001)
 
 ## Run (service on your LAN)
 
@@ -17,6 +19,13 @@ Start the durable queue + API + GPU worker:
 
 ```bash
 docker compose up -d --build whisperx-api whisperx-worker
+```
+
+If you see cache permission warnings, fix host perms once:
+
+```bash
+sudo mkdir -p models/hf_cache data/uploads output/jobs
+sudo chown -R 10001:10001 models data output
 ```
 
 Health check:

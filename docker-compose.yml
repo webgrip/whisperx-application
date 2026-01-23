@@ -8,7 +8,6 @@ x-common-volumes: &common_volumes
 x-common-env: &common_env
   OFFLINE_WHISPERX_ENFORCE_OFFLINE: "1"
   HF_HOME: /app/models/hf_cache
-  TRANSFORMERS_CACHE: /app/models/hf_cache
   HF_HUB_CACHE: /app/models/hf_cache
 
   # Queue

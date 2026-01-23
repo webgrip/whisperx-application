@@ -68,11 +68,29 @@ Start:
 docker compose up -d --build whisperx-api whisperx-worker
 ```
 
+If you are bind-mounting host folders into the containers (the default in `docker-compose.yml`), ensure they are writable by the container user (UID 10001). Otherwise you may see warnings like “problem when trying to write in your cache folder (/app/models/hf_cache)”.
+
+Example (repo-local folders):
+
+```bash
+sudo mkdir -p models/hf_cache data/uploads output/jobs
+sudo chown -R 10001:10001 models data output
+```
+
+Example (recommended `/opt/whisperx` layout on a VM):
+
+```bash
+sudo mkdir -p /opt/whisperx/models/hf_cache /opt/whisperx/data/uploads /opt/whisperx/output/jobs
+sudo chown -R 10001:10001 /opt/whisperx/models /opt/whisperx/data /opt/whisperx/output
+```
+
 Check:
 
 ```bash
 curl http://<host>:8000/health
 ```
+
+If `curl http://127.0.0.1:8000/health` works on the VM but other machines can’t reach it, open inbound TCP/8000 in your VM firewall and (if applicable) your cloud security group.
 
 Submit long audio (chunked):
 
