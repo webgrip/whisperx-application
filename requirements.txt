@@ -11,6 +11,9 @@
 whisperx==3.1.3
 pyannote.audio==3.1.1
 
+# pyannote.audio 3.1.x currently imports `np.NaN` (removed in NumPy 2.0).
+numpy<2
+
 # Helpers used by the starter project
 huggingface_hub>=0.22.0
 soundfile>=0.12.1

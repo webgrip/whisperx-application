@@ -106,7 +106,7 @@ services:
       COMPUTE_TYPE: float16
     # IMPORTANT: escape with $$ so Compose does not interpolate.
     command:
-      ["sh", "-lc", 'python -m rq worker -u "$$REDIS_URL" "$$QUEUE_NAME"']
+      ["sh", "-lc", 'rq worker -u "$$REDIS_URL" "$$QUEUE_NAME"']
 
   whisperx-cli:
     build: .
