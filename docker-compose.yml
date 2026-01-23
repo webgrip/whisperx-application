@@ -24,10 +24,6 @@ x-common-env: &common_env
   UPLOADS_DIR: /app/data/uploads
   JOBS_DIR: /app/output/jobs
 
-networks:
-  backend:
-    internal: true
-
 volumes:
   redis_data:
 
