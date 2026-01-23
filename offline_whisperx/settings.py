@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,6 +31,15 @@ class ServiceSettings(BaseSettings):
     device: str = Field(default="auto", validation_alias="DEVICE")
     compute_type: str = Field(default="auto", validation_alias="COMPUTE_TYPE")
     language: str | None = Field(default=None, validation_alias="LANGUAGE")
+
+    @field_validator("language", mode="before")
+    @classmethod
+    def _empty_language_to_none(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
 
     # Feature defaults
     do_align_default: bool = Field(default=True, validation_alias="DO_ALIGN")

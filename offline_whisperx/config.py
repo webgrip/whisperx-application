@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 class TranscriptionConfig(BaseModel):
     # Paths
@@ -13,6 +13,15 @@ class TranscriptionConfig(BaseModel):
     device: str = Field(default="auto")  # auto|cpu|cuda
     compute_type: str = Field(default="auto")  # auto|int8|float16|float32
     language: str | None = Field(default=None)
+
+    @field_validator("language", mode="before")
+    @classmethod
+    def _empty_language_to_none(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
 
     # Features
     do_align: bool = Field(default=True)

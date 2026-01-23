@@ -35,7 +35,7 @@ class Transcriber:
                 whisper_model,
                 device=self.device,
                 compute_type=self.compute_type,
-                language=self.cfg.language,
+                language=(self.cfg.language or None),
             )
         return self._asr_model
 
