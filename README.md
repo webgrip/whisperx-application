@@ -29,6 +29,9 @@ sudo chown -R 1001:0 cache data output || true
 # D i a r i z a t i o n  is always enabled in this setup.
 # You must accept the model terms on Hugging Face and provide a token:
 export HF_TOKEN="hf_..."
+
+# Optional: verify your token can access the gated model
+make hf-check
 docker compose --profile cli run --rm whisperx-cli \
   --model large-v2 \
   --output_dir /app/output/warmup \

@@ -30,6 +30,9 @@ sudo chown -R 1001:0 cache data output || true
 # - https://hf.co/pyannote/speaker-diarization-3.1
 export HF_TOKEN="hf_..."
 
+# Optional: verify your token has access to the gated pyannote model
+make hf-check
+
 docker compose --profile cli run --rm whisperx-cli \
   --model large-v2 \
   --output_dir /app/output/warmup \
