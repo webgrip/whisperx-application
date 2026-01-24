@@ -4,7 +4,12 @@ WHISPER_MODEL ?= large-v2
 WARMUP_AUDIO ?= /app/data/sample.wav
 
 docker-up:
-	@mkdir -p cache data/uploads output/jobs
+	@mkdir -p cache data/uploads output/jobs output/warmup
+	@if [ "$$(id -u)" = "0" ]; then \
+		chown -R 1001:0 cache data output || true; \
+	else \
+		echo "NOTE: if you hit permission errors, run once: sudo chown -R 1001:0 cache data output"; \
+	fi
 	docker compose up -d --build whisperx-api whisperx-worker
 
 docker-down:
@@ -16,7 +21,12 @@ docker-logs:
 # One-time cache warm-up (run on an online machine).
 # Set HF_TOKEN if you want diarization cache warmed.
 cache-warm:
-	@mkdir -p cache output
+	@mkdir -p cache output/warmup
+	@if [ "$$(id -u)" = "0" ]; then \
+		chown -R 1001:0 cache output || true; \
+	else \
+		echo "NOTE: if you hit permission errors, run once: sudo chown -R 1001:0 cache output"; \
+	fi
 	docker compose --profile cli run --rm whisperx-cli \
 		--model "$(WHISPER_MODEL)" \
 		--output_dir /app/output/warmup \

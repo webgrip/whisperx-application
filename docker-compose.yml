@@ -15,6 +15,9 @@ x-common-env: &common_env
   WHISPERX_MODEL_DIR: /.cache
   PYANNOTE_CACHE: /.cache/pyannote
 
+  # Avoid Matplotlib trying to create cache dirs under /.cache (some libs import it transitively).
+  MPLCONFIGDIR: /tmp/matplotlib
+
   # Queue
   REDIS_URL: redis://redis:6379/0
   QUEUE_NAME: whisperx
@@ -127,4 +130,5 @@ services:
       <<: *common_env
       DEVICE: cuda
       COMPUTE_TYPE: float16
-    command: ["whisperx"]
+    entrypoint: ["whisperx"]
+    command: ["--help"]

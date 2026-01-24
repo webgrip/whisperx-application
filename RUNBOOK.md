@@ -21,6 +21,10 @@ You generally need to warm the cache by running WhisperX once while you have int
 ```bash
 mkdir -p cache data output
 
+# Ensure host bind-mounts are writable by the container user.
+# The upstream WhisperX image commonly runs as uid 1001.
+sudo chown -R 1001:0 cache data output || true
+
 # If you need diarization, accept pyannote model terms on Hugging Face and set a token.
 export HF_TOKEN="hf_..."
 

@@ -22,6 +22,9 @@ WhisperX only downloads what it needs. The simplest cache-warm is: run a real tr
 ```bash
 mkdir -p cache data output
 
+# If running on a VM and you see PermissionError writing /app/output or /.cache:
+sudo chown -R 1001:0 cache data output || true
+
 # Put a small sample in ./data (any supported audio format)
 # Then run a warm-up job that exercises diarization (requires HF terms acceptance + token):
 export HF_TOKEN="hf_..."
