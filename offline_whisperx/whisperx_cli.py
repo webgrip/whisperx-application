@@ -95,11 +95,33 @@ def run_whisperx(
 
     cmd: list[str] = ["whisperx", *build_whisperx_args(audio_path, outdir, cfg)]
 
-    return subprocess.run(
-        cmd,
-        text=True,
-        env=merged_env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        check=True,
-    )
+    def _redact_cmd(argv: list[str]) -> list[str]:
+        redacted: list[str] = []
+        skip_next = False
+        for item in argv:
+            if skip_next:
+                redacted.append("***")
+                skip_next = False
+                continue
+            redacted.append(item)
+            if item == "--hf_token":
+                skip_next = True
+        return redacted
+
+    try:
+        return subprocess.run(
+            cmd,
+            text=True,
+            env=merged_env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        # Avoid leaking tokens into logs/tracebacks.
+        raise subprocess.CalledProcessError(
+            e.returncode,
+            _redact_cmd(list(e.cmd) if isinstance(e.cmd, (list, tuple)) else cmd),
+            output=e.stdout,
+            stderr=e.stderr,
+        ) from None

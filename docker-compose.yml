@@ -29,6 +29,10 @@ x-common-env: &common_env
   # Avoid Matplotlib trying to create cache dirs under /.cache (some libs import it transitively).
   MPLCONFIGDIR: /tmp/matplotlib
 
+  # Worker execution defaults (used by the API when enqueuing jobs)
+  WORKER_DEVICE: cuda
+  WORKER_COMPUTE_TYPE: float16
+
   # Queue
   REDIS_URL: redis://redis:6379/0
   QUEUE_NAME: whisperx

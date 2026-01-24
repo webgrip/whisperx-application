@@ -73,6 +73,11 @@ class ServiceSettings(BaseSettings):
     compute_type: str = Field(default="auto", validation_alias="COMPUTE_TYPE")
     language: str | None = Field(default=None, validation_alias="LANGUAGE")
 
+    # Worker (WhisperX CLI execution) runtime.
+    # Note: WhisperX CLI expects compute_type in {float16,float32,int8}; it does not accept "auto".
+    worker_device: str = Field(default="cuda", validation_alias="WORKER_DEVICE")
+    worker_compute_type: str = Field(default="float16", validation_alias="WORKER_COMPUTE_TYPE")
+
     @field_validator("language", mode="before")
     @classmethod
     def _empty_language_to_none(cls, v):
