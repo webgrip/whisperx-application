@@ -125,6 +125,7 @@ def _enqueue_transcription(
             "overlap_seconds": overlap_seconds,
         },
         job_id=job_id,
+        job_timeout=int(SETTINGS.job_timeout_seconds),
         result_ttl=7 * 24 * 3600,
         failure_ttl=7 * 24 * 3600,
     )

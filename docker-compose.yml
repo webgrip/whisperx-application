@@ -36,6 +36,7 @@ x-common-env: &common_env
   # Queue
   REDIS_URL: redis://redis:6379/0
   QUEUE_NAME: whisperx
+  JOB_TIMEOUT_SECONDS: 7200
 
   # WhisperX CLI model names
   WHISPER_MODEL: large-v2

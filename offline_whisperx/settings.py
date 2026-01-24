@@ -98,6 +98,9 @@ class ServiceSettings(BaseSettings):
     redis_url: str = Field(default="redis://redis:6379/0", validation_alias="REDIS_URL")
     queue_name: str = Field(default="whisperx", validation_alias="QUEUE_NAME")
 
+    # RQ job timeout. Default RQ timeout is 180s, which is too short for real WhisperX jobs.
+    job_timeout_seconds: int = Field(default=7200, validation_alias="JOB_TIMEOUT_SECONDS")
+
     # Output formats (service may still return JSON)
     write_srt: bool = Field(default=False, validation_alias="WRITE_SRT")
     write_vtt: bool = Field(default=False, validation_alias="WRITE_VTT")

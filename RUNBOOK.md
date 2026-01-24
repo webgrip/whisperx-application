@@ -65,4 +65,5 @@ curl -F "file=@/path/to/audio.wav" \
 
 - GPU not visible: verify NVIDIA Container Toolkit with `docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi`.
 - Job failed: check `output/jobs/<job_id>/whisperx.log` (and per-chunk logs under `output/jobs/<job_id>/chunks/`).
+- Job times out after ~180s: increase `JOB_TIMEOUT_SECONDS` in `.env` (default is 7200 in this repo).
 - Diarization fails offline: make sure `cache/` includes pyannote models and `HF_TOKEN` is available if your WhisperX version requires it.
