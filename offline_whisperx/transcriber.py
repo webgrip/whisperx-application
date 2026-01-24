@@ -75,13 +75,14 @@ class Transcriber:
         # produce an HTML error page that later fails checksum/model load.
         try:
             head = vad_path.open("rb").read(256)
-            if b"<html" in head.lower() or b"<!doctype html" in head.lower():
-                raise RuntimeError(
-                    f"VAD_FILE points to an invalid file (looks like HTML): {str(vad_path)!r}. "
-                    "Re-download the WhisperX VAD blob (make docker-models-vad) and copy it to the GPU machine."
-                )
-        except Exception:
+        except OSError:
             return
+
+        if b"<html" in head.lower() or b"<!doctype html" in head.lower() or head.lstrip().startswith(b"<"):
+            raise RuntimeError(
+                f"VAD_FILE points to an invalid file (looks like HTML): {str(vad_path)!r}. "
+                "Re-download the WhisperX VAD blob (make docker-models-vad) and copy it to the GPU machine."
+            )
 
         def _sha256_file(path: Path) -> str:
             h = hashlib.sha256()
