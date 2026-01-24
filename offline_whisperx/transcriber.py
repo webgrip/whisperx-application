@@ -30,6 +30,7 @@ class Transcriber:
 
     def _get_asr_model(self):
         if self._asr_model is None:
+            self._configure_whisperx_vad_source()
             whisper_model = self._resolve_whisper_model_spec(self.cfg.whisper_model)
             self._asr_model = self.whisperx.load_model(
                 whisper_model,
@@ -38,6 +39,32 @@ class Transcriber:
                 language=(self.cfg.language or None),
             )
         return self._asr_model
+
+    def _configure_whisperx_vad_source(self) -> None:
+        """Prevent whisperx from downloading VAD at runtime.
+
+        WhisperX 3.1.x may download a VAD blob via `whisperx.vad.VAD_SEGMENTATION_URL`.
+        In offline deployments we instead point that URL at a local file (if provided).
+
+        Configure with env var:
+          VAD_FILE=/app/models/vad/whisperx_vad.bin
+        """
+
+        vad_file = os.environ.get("VAD_FILE", "").strip()
+        if not vad_file:
+            return
+
+        vad_path = Path(vad_file)
+        if not vad_path.exists():
+            return
+
+        try:
+            import whisperx.vad as vad
+
+            vad.VAD_SEGMENTATION_URL = vad_path.resolve().as_uri()
+        except Exception:
+            # If whisperx internals change, just fall back to default behavior.
+            return
 
     def _resolve_whisper_model_spec(self, spec: Path) -> str:
         """Resolve configured Whisper model.

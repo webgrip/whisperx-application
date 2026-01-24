@@ -44,6 +44,8 @@ make docker-models
 # make docker-models WHISPER_REPO=Systran/faster-whisper-base
 ```
 
+Important: WhisperX also uses a small VAD model blob. `make docker-models` now downloads it into `models/vad/whisperx_vad.bin`. For fully-offline runtime, set `VAD_FILE=/app/models/vad/whisperx_vad.bin` (see `.env.example`).
+
 Expected outputs:
 
 - `models/faster-whisper-*/` (directory)

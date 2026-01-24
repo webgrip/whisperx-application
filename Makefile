@@ -1,4 +1,4 @@
-.PHONY: venv install run api cli docker-api docker-worker docker-cli docker-build docker-down docker-perms docker-models docker-models-whisper docker-models-align docker-models-pyannote
+.PHONY: venv install run api cli docker-api docker-worker docker-cli docker-build docker-down docker-perms docker-models docker-models-whisper docker-models-align docker-models-vad docker-models-pyannote
 
 WHISPER_REPO ?= Systran/faster-whisper-small
 ALIGN_REPO ?= facebook/wav2vec2-base-960h
@@ -44,7 +44,7 @@ docker-perms:
 
 # Download all models into ./models using the Docker image.
 # Requires internet connectivity on the machine running Docker.
-docker-models: docker-perms docker-models-whisper docker-models-align docker-models-pyannote
+docker-models: docker-perms docker-models-whisper docker-models-align docker-models-vad docker-models-pyannote
 
 docker-models-whisper:
 	docker compose run --rm --entrypoint python whisperx-api \
@@ -53,6 +53,10 @@ docker-models-whisper:
 docker-models-align:
 	docker compose run --rm --entrypoint python whisperx-api \
 		scripts/prefetch_models.py align --models-dir /app/models --repo-id "$(ALIGN_REPO)"
+
+docker-models-vad:
+	docker compose run --rm --entrypoint python whisperx-api \
+		scripts/prefetch_vad.py --models-dir /app/models
 
 # Pyannote models are usually gated. You must export HF_TOKEN and accept the terms on HuggingFace.
 docker-models-pyannote:
