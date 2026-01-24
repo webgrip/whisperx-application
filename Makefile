@@ -22,6 +22,7 @@ docker-logs:
 # Requires HF_TOKEN + accepted pyannote terms.
 cache-warm:
 	@mkdir -p cache output/warmup
+	@test -n "$$HF_TOKEN" || (echo "HF_TOKEN is required for diarization warmup. Export HF_TOKEN=hf_... and accept pyannote terms." && exit 1)
 	@if [ "$$(id -u)" = "0" ]; then \
 		chown -R 1001:0 cache output || true; \
 	else \
@@ -32,6 +33,7 @@ cache-warm:
 		--output_dir /app/output/warmup \
 		--output_format json \
 		--diarize \
+		--hf_token "$$HF_TOKEN" \
 		"$(WARMUP_AUDIO)"
 
 cli:
