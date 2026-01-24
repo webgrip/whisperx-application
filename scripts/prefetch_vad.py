@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import subprocess
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 
 def _get_whisperx_vad_url() -> str:
@@ -46,9 +47,38 @@ def main() -> None:
 
     try:
         head = dest.open("rb").read(256)
-        if b"<html" in head.lower() or b"<!doctype html" in head.lower():
-            dest.unlink(missing_ok=True)
-            raise RuntimeError("Downloaded HTML instead of VAD blob (check network/proxy).")
+        # S3/proxies often return XML/HTML error payloads (AccessDenied, ExpiredToken, etc.)
+        # which later crash in torch.load with "invalid load key, '<'".
+        if head.lstrip().startswith(b"<"):
+            snippet = head.decode("utf-8", errors="replace")
+            code = msg = req = None
+            try:
+                # Best-effort parsing for S3-style errors.
+                tree = ET.parse(dest)
+                root = tree.getroot()
+                # Tag names may be namespaced; match by suffix.
+                def _find_text(suffix: str):
+                    for el in root.iter():
+                        if el.tag.endswith(suffix) and el.text:
+                            return el.text.strip()
+                    return None
+                code = _find_text("Code")
+                msg = _find_text("Message")
+                req = _find_text("RequestId") or _find_text("RequestID")
+            except Exception:
+                pass
+            finally:
+                dest.unlink(missing_ok=True)
+
+            details = ""
+            if code or msg or req:
+                details = f" (code={code!r} message={msg!r} request_id={req!r})"
+            raise RuntimeError(
+                "Downloaded a non-model payload (starts with '<'; likely an XML/HTML error page).\n"
+                f"URL: {url}\n"
+                f"Head: {snippet!r}{details}\n"
+                "This is almost always a network/proxy/firewall issue on the machine/container doing the download."
+            )
     except Exception as e:
         raise RuntimeError(f"VAD download produced an invalid file at {str(dest)!r}: {e}")
 
@@ -57,6 +87,8 @@ def main() -> None:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     sha256 = h.hexdigest()
+
+    size_bytes = dest.stat().st_size
 
     # Best-effort: compare against the checksum WhisperX expects for this version.
     try:
@@ -77,6 +109,7 @@ def main() -> None:
         pass
 
     print(f"Downloaded WhisperX VAD -> {dest}")
+    print(f"VAD size -> {size_bytes} bytes")
     print(f"VAD SHA256 -> {sha256}")
     print(f"Set VAD_FILE=/app/models/{args.out} (or use .env.example)")
 
