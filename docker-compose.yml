@@ -1,5 +1,10 @@
 name: whisperx
 
+# Most upstream WhisperX images run as uid 1001. If your bind-mounted dirs are owned
+# by a different user (e.g. root on a VM), set WHISPERX_UID=0 in .env to avoid
+# PermissionError writing to /app/output or /.cache.
+x-service-user: &service_user "${WHISPERX_UID:-1001}:0"
+
 x-common-volumes: &common_volumes
   - ./data:/app/data
   - ./output:/app/output
@@ -64,6 +69,7 @@ services:
       context: .
       dockerfile: Dockerfile.api
     restart: unless-stopped
+    user: *service_user
     depends_on:
       redis:
         condition: service_healthy
@@ -104,6 +110,7 @@ services:
       context: .
       dockerfile: Dockerfile.worker
     restart: unless-stopped
+    user: *service_user
     depends_on:
       redis:
         condition: service_healthy
@@ -127,6 +134,7 @@ services:
       dockerfile: Dockerfile.worker
     profiles: ["cli"]
     restart: "no"
+    user: *service_user
     deploy: {}
     gpus:
       - device: "all"

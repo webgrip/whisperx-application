@@ -2,13 +2,14 @@
 
 WHISPER_MODEL ?= large-v2
 WARMUP_AUDIO ?= /app/data/sample.wav
+CONTAINER_UID ?= 1001
 
 docker-up:
 	@mkdir -p cache data/uploads output/jobs output/warmup
 	@if [ "$$(id -u)" = "0" ]; then \
-		chown -R 1001:0 cache data output || true; \
+		chown -R "$(CONTAINER_UID)":0 cache data output || true; \
 	else \
-		echo "NOTE: if you hit permission errors, run once: sudo chown -R 1001:0 cache data output"; \
+		echo "NOTE: if you hit permission errors, run once: sudo chown -R $(CONTAINER_UID):0 cache data output"; \
 	fi
 	docker compose up -d --build whisperx-api whisperx-worker
 
@@ -24,9 +25,9 @@ cache-warm:
 	@mkdir -p cache output/warmup
 	@test -n "$$HF_TOKEN" || (echo "HF_TOKEN is required for diarization warmup. Export HF_TOKEN=hf_... and accept pyannote terms." && exit 1)
 	@if [ "$$(id -u)" = "0" ]; then \
-		chown -R 1001:0 cache output || true; \
+		chown -R "$(CONTAINER_UID)":0 cache output || true; \
 	else \
-		echo "NOTE: if you hit permission errors, run once: sudo chown -R 1001:0 cache output"; \
+		echo "NOTE: if you hit permission errors, run once: sudo chown -R $(CONTAINER_UID):0 cache output"; \
 	fi
 	@echo "Checking Hugging Face access to pyannote diarization model...";
 	@$(MAKE) --no-print-directory hf-check || true

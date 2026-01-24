@@ -23,7 +23,9 @@ WhisperX only downloads what it needs. The simplest cache-warm is: run a real tr
 mkdir -p cache data output
 
 # If running on a VM and you see PermissionError writing /app/output or /.cache:
+# Option A) Keep container uid=1001 (default) and chown the bind mounts:
 sudo chown -R 1001:0 cache data output || true
+# Option B) Run containers as root (set once in .env): WHISPERX_UID=0
 
 # Put a small sample in ./data (any supported audio format)
 # D i a r i z a t i o n  is always enabled in this setup.
