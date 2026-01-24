@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 from huggingface_hub import hf_hub_download
@@ -29,6 +30,10 @@ def main() -> None:
     p.add_argument("--models-dir", default="models", help="Base models directory.")
     p.add_argument("--hf-token", default=None, help="Hugging Face token (often required for pyannote models).")
     args = p.parse_args()
+
+    if args.hf_token is None:
+        # Prefer repo's convention but also support the upstream env var.
+        args.hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_HUB_TOKEN")
 
     models_dir = Path(args.models_dir)
     py_dir = models_dir / "pyannote"

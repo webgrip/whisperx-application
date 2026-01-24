@@ -36,9 +36,12 @@ python scripts/prefetch_pyannote_models.py --models-dir ./models --hf-token "$HF
 Or (recommended) download via Docker so you don't need a host Python environment:
 
 ```bash
-# Whisper + alignment + pyannote (requires HF_TOKEN)
-export HF_TOKEN="hf_..."
+# Whisper + alignment + VAD (no token required)
 make docker-models
+
+# Include diarization (pyannote) models (requires HF_TOKEN + accepted terms)
+export HF_TOKEN="hf_..."   # optional if already set in .env
+make docker-models-pyannote   # or: make docker-models-all
 
 # Override which Whisper model you want:
 # make docker-models WHISPER_REPO=Systran/faster-whisper-base

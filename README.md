@@ -18,8 +18,12 @@ If you want the detailed model download + ops runbook, see: RUNBOOK.md.
 Download models (on an online machine):
 
 ```bash
-export HF_TOKEN="hf_..."   # only needed if you want diarization
 make docker-models
+
+# If you want diarization (pyannote), you must accept the model terms on Hugging Face
+# and provide a token (either in `.env` or exported):
+export HF_TOKEN="hf_..."   # optional if already set in .env
+make docker-models-pyannote   # or: make docker-models-all
 ```
 
 Start the durable queue + API + GPU worker:

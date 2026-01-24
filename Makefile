@@ -1,4 +1,4 @@
-.PHONY: venv install run api cli docker-api docker-worker docker-cli docker-build docker-down docker-perms docker-models docker-models-whisper docker-models-align docker-models-vad docker-models-pyannote
+.PHONY: venv install run api cli docker-api docker-worker docker-cli docker-build docker-down docker-perms docker-models docker-models-all docker-models-whisper docker-models-align docker-models-vad docker-models-pyannote docker-models-pyannote-optional
 
 WHISPER_REPO ?= Systran/faster-whisper-small
 ALIGN_REPO ?= facebook/wav2vec2-base-960h
@@ -42,9 +42,13 @@ docker-perms:
 		echo "NOTE: run once: sudo chown -R 10001:10001 models data output"; \
 	fi
 
-# Download all models into ./models using the Docker image.
+# Download public (non-gated) models into ./models using the Docker image.
 # Requires internet connectivity on the machine running Docker.
-docker-models: docker-perms docker-models-whisper docker-models-align docker-models-vad docker-models-pyannote
+docker-models: docker-perms docker-models-whisper docker-models-align docker-models-vad docker-models-pyannote-optional
+
+# Download all models, including gated pyannote models.
+# Requires HF_TOKEN and Hugging Face terms acceptance for the pyannote repos.
+docker-models-all: docker-perms docker-models-whisper docker-models-align docker-models-vad docker-models-pyannote
 
 docker-models-whisper:
 	docker compose run --rm --entrypoint python whisperx-api \
@@ -60,6 +64,15 @@ docker-models-vad:
 
 # Pyannote models are usually gated. You must export HF_TOKEN and accept the terms on HuggingFace.
 docker-models-pyannote:
-	@test -n "$$HF_TOKEN" || (echo "HF_TOKEN is required for pyannote models. Export HF_TOKEN=hf_..." && exit 1)
-	docker compose run --rm -e HF_TOKEN="$$HF_TOKEN" --entrypoint python whisperx-api \
-		scripts/prefetch_pyannote_models.py --models-dir /app/models --hf-token "$$HF_TOKEN"
+	docker compose run --rm --entrypoint python whisperx-api \
+		scripts/prefetch_pyannote_models.py --models-dir /app/models
+
+# Optional helper: skip pyannote downloads when HF_TOKEN isn't set.
+docker-models-pyannote-optional:
+	@if [ -n "$$HF_TOKEN" ]; then \
+		$(MAKE) docker-models-pyannote; \
+	elif [ -f .env ] && grep -Eq '^[[:space:]]*HF_TOKEN=[[:space:]]*[^[:space:]].*$$' .env; then \
+		$(MAKE) docker-models-pyannote; \
+	else \
+		echo "Skipping pyannote models (HF_TOKEN not set in environment or .env). Run: make docker-models-pyannote (or make docker-models-all)"; \
+	fi
