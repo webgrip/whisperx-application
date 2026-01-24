@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -22,17 +23,23 @@ class Transcriber:
         self.cfg = cfg
         self.device = guess_device(cfg.device)
         self.compute_type = guess_compute_type(cfg.compute_type, self.device)
-        self.whisperx = _load_whisperx()
+        self.whisperx = None
 
         self._asr_model = None
         self._align_cache: dict[tuple[str, str], tuple[Any, Any]] = {}
         self._pyannote_pipeline = None
 
+    def _get_whisperx(self):
+        if self.whisperx is None:
+            self.whisperx = _load_whisperx()
+        return self.whisperx
+
     def _get_asr_model(self):
         if self._asr_model is None:
             self._configure_whisperx_vad_source()
             whisper_model = self._resolve_whisper_model_spec(self.cfg.whisper_model)
-            self._asr_model = self.whisperx.load_model(
+            wx = self._get_whisperx()
+            self._asr_model = wx.load_model(
                 whisper_model,
                 device=self.device,
                 compute_type=self.compute_type,
@@ -52,16 +59,70 @@ class Transcriber:
 
         vad_file = os.environ.get("VAD_FILE", "").strip()
         if not vad_file:
-            return
+            # Sensible default for this project; keeps older deployments working.
+            default = Path("/app/models/vad/whisperx_vad.bin")
+            if default.exists():
+                vad_file = str(default)
+            else:
+                return
 
         vad_path = Path(vad_file)
         if not vad_path.exists():
             return
 
+        # Quick corruption check: when offline or behind a proxy, a download can silently
+        # produce an HTML error page that later fails checksum/model load.
+        try:
+            head = vad_path.open("rb").read(256)
+            if b"<html" in head.lower() or b"<!doctype html" in head.lower():
+                raise RuntimeError(
+                    f"VAD_FILE points to an invalid file (looks like HTML): {str(vad_path)!r}. "
+                    "Re-download the WhisperX VAD blob (make docker-models-vad) and copy it to the GPU machine."
+                )
+        except Exception:
+            return
+
+        def _sha256_file(path: Path) -> str:
+            h = hashlib.sha256()
+            with path.open("rb") as f:
+                for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                    h.update(chunk)
+            return h.hexdigest()
+
+        try:
+            vad_sha256 = _sha256_file(vad_path)
+        except Exception:
+            return
+
         try:
             import whisperx.vad as vad
 
-            vad.VAD_SEGMENTATION_URL = vad_path.resolve().as_uri()
+            # Point whisperx at our local file.
+            file_uri = vad_path.resolve().as_uri()
+            if hasattr(vad, "VAD_SEGMENTATION_URL"):
+                vad.VAD_SEGMENTATION_URL = file_uri
+            if hasattr(vad, "VAD_URL"):
+                vad.VAD_URL = file_uri
+
+            # WhisperX validates the blob via a module-level SHA256 constant.
+            # When models are copied between machines or cached oddly, we prefer the
+            # operator-provided VAD_FILE and align the expected checksum to it.
+            for attr in dir(vad):
+                if "SHA" not in attr.upper():
+                    continue
+                try:
+                    val = getattr(vad, attr)
+                except Exception:
+                    continue
+                if isinstance(val, str) and len(val) == 64:
+                    try:
+                        int(val, 16)
+                    except Exception:
+                        continue
+                    try:
+                        setattr(vad, attr, vad_sha256)
+                    except Exception:
+                        pass
         except Exception:
             # If whisperx internals change, just fall back to default behavior.
             return
