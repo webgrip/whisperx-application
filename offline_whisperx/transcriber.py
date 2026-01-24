@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -97,32 +98,29 @@ class Transcriber:
         try:
             import whisperx.vad as vad
 
-            # Point whisperx at our local file.
-            file_uri = vad_path.resolve().as_uri()
-            if hasattr(vad, "VAD_SEGMENTATION_URL"):
-                vad.VAD_SEGMENTATION_URL = file_uri
-            if hasattr(vad, "VAD_URL"):
-                vad.VAD_URL = file_uri
+            # WhisperX 3.1.3 validates the downloaded model by comparing
+            #   sha256(model_fp) == VAD_SEGMENTATION_URL.split('/')[-2]
+            # So we point the URL at a local *file URI* whose parent directory is the sha.
+            staged = vad_path.parent / "_whisperx_vad" / vad_sha256 / "pytorch_model.bin"
+            staged.parent.mkdir(parents=True, exist_ok=True)
+            if not staged.exists() or _sha256_file(staged) != vad_sha256:
+                shutil.copyfile(vad_path, staged)
 
-            # WhisperX validates the blob via a module-level SHA256 constant.
-            # When models are copied between machines or cached oddly, we prefer the
-            # operator-provided VAD_FILE and align the expected checksum to it.
-            for attr in dir(vad):
-                if "SHA" not in attr.upper():
-                    continue
-                try:
-                    val = getattr(vad, attr)
-                except Exception:
-                    continue
-                if isinstance(val, str) and len(val) == 64:
-                    try:
-                        int(val, 16)
-                    except Exception:
-                        continue
-                    try:
-                        setattr(vad, attr, vad_sha256)
-                    except Exception:
-                        pass
+            vad.VAD_SEGMENTATION_URL = staged.resolve().as_uri()
+
+            # Also guard against a corrupted existing torch hub cache file: if it exists,
+            # ensure it matches our staged blob so WhisperX doesn't fail before redownloading.
+            try:
+                import torch
+
+                model_dir = Path(torch.hub._get_torch_home())
+                model_fp = model_dir / "whisperx-vad-segmentation.bin"
+                if model_fp.exists() and model_fp.is_file():
+                    if _sha256_file(model_fp) != vad_sha256:
+                        model_fp.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copyfile(staged, model_fp)
+            except Exception:
+                pass
         except Exception:
             # If whisperx internals change, just fall back to default behavior.
             return
