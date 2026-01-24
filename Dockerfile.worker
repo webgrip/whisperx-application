@@ -22,5 +22,9 @@ RUN /venv/bin/python -m ensurepip --upgrade --default-pip \
  && /venv/bin/python -m pip install -U pip \
  && /venv/bin/python -m pip install --no-cache-dir -r requirements.worker.txt
 
+# The upstream image's ENTRYPOINT is `whisperx`, which breaks our worker command
+# (we need to run `rq worker ...`). Clear it so docker-compose `command:` works.
+ENTRYPOINT []
+
 # Default command is overridden by docker-compose to start rq worker.
 CMD ["python", "-c", "print('worker image built; override CMD in compose')"]
