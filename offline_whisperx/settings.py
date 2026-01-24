@@ -14,18 +14,59 @@ class ServiceSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    # Offline enforcement
-    offline_enforce: bool = Field(default=True, validation_alias="OFFLINE_WHISPERX_ENFORCE_OFFLINE")
+    # Cache locations (mounted as a Docker volume in worker mode)
+    hf_home: Path = Field(default=Path("/.cache/huggingface"), validation_alias="HF_HOME")
+    model_dir: Path = Field(default=Path("/.cache"), validation_alias="WHISPERX_MODEL_DIR")
+    pyannote_cache: Path = Field(default=Path("/.cache/pyannote"), validation_alias="PYANNOTE_CACHE")
 
-    # Cache locations
-    hf_home: Path = Field(default=Path("/app/models/hf_cache"), validation_alias="HF_HOME")
+    # WhisperX CLI configuration
+    whisper_model: str = Field(default="large-v2", validation_alias="WHISPER_MODEL")
+    align_model: str | None = Field(default=None, validation_alias="ALIGN_MODEL")
+    diarize_model: str | None = Field(default=None, validation_alias="DIARIZE_MODEL")
 
-    # Model paths
-    whisper_model: Path = Field(default=Path("/app/models/faster-whisper-base"), validation_alias="WHISPER_MODEL")
-    align_model: Path = Field(default=Path("/app/models/wav2vec2-base-960h"), validation_alias="ALIGN_MODEL")
-    pyannote_config: Path = Field(
-        default=Path("/app/config/pyannote_diarization_config.yaml"), validation_alias="PYANNOTE_CONFIG"
-    )
+    @field_validator("whisper_model", mode="before")
+    @classmethod
+    def _normalize_whisper_model(cls, v):
+        if v is None:
+            return "large-v2"
+        if isinstance(v, Path):
+            v = str(v)
+        if not isinstance(v, str):
+            return v
+
+        s = v.strip()
+        if not s:
+            return "large-v2"
+
+        # Back-compat: previous versions used local directory paths.
+        # Convert those into WhisperX model names like `small`.
+        if s.startswith("/") or s.startswith("./") or s.startswith("../"):
+            name = Path(s).name
+            if name.startswith("faster-whisper-"):
+                return name.replace("faster-whisper-", "", 1)
+            return name
+
+        return s
+
+    @field_validator("align_model", "diarize_model", mode="before")
+    @classmethod
+    def _normalize_optional_model_name(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, Path):
+            v = str(v)
+        if not isinstance(v, str):
+            return v
+        s = v.strip()
+        if not s:
+            return None
+
+        # Back-compat: older configs used local paths. For WhisperX CLI,
+        # prefer letting WhisperX auto-select instead of passing a path.
+        if s.startswith("/") or s.startswith("./") or s.startswith("../"):
+            return None
+
+        return s
 
     # Runtime
     device: str = Field(default="auto", validation_alias="DEVICE")
@@ -40,11 +81,6 @@ class ServiceSettings(BaseSettings):
         if isinstance(v, str) and v.strip() == "":
             return None
         return v
-
-    # Feature defaults
-    do_align_default: bool = Field(default=True, validation_alias="DO_ALIGN")
-    do_diarize_default: bool = Field(default=False, validation_alias="DO_DIARIZE")
-
     # Output/layout
     outdir: Path = Field(default=Path("/app/output"), validation_alias="OUTDIR")
     uploads_dir: Path = Field(default=Path("/app/data/uploads"), validation_alias="UPLOADS_DIR")

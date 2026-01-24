@@ -10,5 +10,8 @@ venv/
 # Artifacts
 output/**
 !output/.gitkeep
-models/**
-!models/.gitkeep
+
+cache/**
+!cache/.gitkeep
+
+data/uploads/**

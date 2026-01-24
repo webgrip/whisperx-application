@@ -1,83 +1,60 @@
-# WhisperX (offline) — How to run
+# WhisperX (cache-based offline) — How to run
 
-This repository runs WhisperX transcription (optionally diarization) **fully offline** once you’ve staged models under `models/`.
+This repo is now a thin **API + durable job queue** that runs the upstream **WhisperX CLI** inside a **public Docker image**, using a **shared cache directory**.
 
-If you want the detailed model download + ops runbook, see: RUNBOOK.md.
+It matches the workflow discussed in WhisperX issue #873: warm the cache once while you have internet, then reuse it offline later. If the network is available and something is missing, WhisperX will download it into `cache/`.
+
+## What you get
+
+- `whisperx-api`: FastAPI endpoint to upload audio and enqueue a job
+- `whisperx-worker`: GPU worker built FROM `ghcr.io/jim60105/whisperx:no_model`, executes `whisperx ...` and writes JSON results
+- `./cache/`: persistent Hugging Face + pyannote cache (portable to an offline machine)
 
 ## Prereqs
 
 - Docker + Docker Compose
-- NVIDIA driver + NVIDIA Container Toolkit (GPU worker)
-- Models staged on the host and mounted to `/app/models`
-  - Download instructions: RUNBOOK.md
-- If running on a VM: allow inbound TCP/8000 (security group + VM firewall)
-- Ensure bind-mounted folders are writable by the container user (UID 10001)
+- NVIDIA driver + NVIDIA Container Toolkit (GPU machine)
 
-## Run (service on your LAN)
+## 1) Warm the cache (online machine)
 
-Download models (on an online machine):
+WhisperX only downloads what it needs. The simplest cache-warm is: run a real transcription once.
 
 ```bash
-make docker-models
+mkdir -p cache data output
 
-# If you want diarization (pyannote), you must accept the model terms on Hugging Face
-# and provide a token (either in `.env` or exported):
-export HF_TOKEN="hf_..."   # optional if already set in .env
-make docker-models-pyannote   # or: make docker-models-all
+# Put a small sample in ./data (any supported audio format)
+# Then run a warm-up job that exercises diarization (requires HF terms acceptance + token):
+export HF_TOKEN="hf_..."
+docker compose --profile cli run --rm whisperx-cli \
+  --model large-v2 \
+  --output_dir /app/output/warmup \
+  --output_format json \
+  --diarize \
+  /app/data/sample.wav
 ```
 
-Start the durable queue + API + GPU worker:
+Now copy the whole `cache/` directory to your offline machine and keep mounting it to `/.cache`.
+
+## 2) Run the service (offline machine)
 
 ```bash
 docker compose up -d --build whisperx-api whisperx-worker
+curl http://localhost:8000/health
 ```
 
-If you see cache permission warnings, fix host perms once:
-
-```bash
-sudo mkdir -p models/hf_cache data/uploads output/jobs
-sudo chown -R 10001:10001 models data output
-```
-
-Health check:
-
-```bash
-curl http://<host>:8000/health
-```
-
-Submit a transcription job (recommended for multi-hour audio):
+Submit a job:
 
 ```bash
 curl -F "file=@/path/to/audio.wav" \
-  "http://<host>:8000/jobs/transcribe?chunk_seconds=1800&overlap_seconds=10&do_align=true&do_diarize=false"
+  "http://localhost:8000/jobs/transcribe?chunk_seconds=1800&overlap_seconds=10&do_align=true&do_diarize=false"
 ```
 
-Poll status:
+Poll and fetch results:
 
 ```bash
-curl "http://<host>:8000/jobs/<job_id>"
+curl "http://localhost:8000/jobs/<job_id>"
+curl "http://localhost:8000/jobs/<job_id>/result"
 ```
 
-Fetch result:
-
-```bash
-curl "http://<host>:8000/jobs/<job_id>/result"
-```
-
-## Volumes (recommended host layout)
-
-- `/opt/whisperx/models` → `/app/models`
-- `/opt/whisperx/output` → `/app/output`
-
-## Optional: CLI container
-
-```bash
-docker compose --profile cli run --rm whisperx-cli
-```
-
-## More docs
-
-- Detailed runbook: RUNBOOK.md
-- Architecture overview: ARCHITECTURE.md
-- Pyannote pipeline config: config/pyannote_diarization_config.yaml
+More details: RUNBOOK.md
 

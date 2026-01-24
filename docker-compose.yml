@@ -1,23 +1,30 @@
 name: whisperx
 
 x-common-volumes: &common_volumes
-  - ./models:/app/models
+  - ./data:/app/data
+  - ./output:/app/output
+
+x-worker-volumes: &worker_volumes
+  - ./cache:/.cache
   - ./data:/app/data
   - ./output:/app/output
 
 x-common-env: &common_env
-  OFFLINE_WHISPERX_ENFORCE_OFFLINE: "1"
-  HF_HOME: /app/models/hf_cache
-  HF_HUB_CACHE: /app/models/hf_cache
+  HF_HOME: /.cache/huggingface
+  HF_HUB_CACHE: /.cache/huggingface/hub
+  WHISPERX_MODEL_DIR: /.cache
+  PYANNOTE_CACHE: /.cache/pyannote
 
   # Queue
   REDIS_URL: redis://redis:6379/0
   QUEUE_NAME: whisperx
 
-  # Model paths
-  WHISPER_MODEL: /app/models/faster-whisper-base
-  ALIGN_MODEL: /app/models/wav2vec2-base-960h
-  PYANNOTE_CONFIG: /app/config/pyannote_diarization_config.yaml
+  # WhisperX CLI model names
+  WHISPER_MODEL: large-v2
+  # Optional override (otherwise WhisperX auto-picks)
+  # ALIGN_MODEL: WAV2VEC2_ASR_LARGE_LV60K_960H
+  # Optional diarization pipeline choice
+  # DIARIZE_MODEL: pyannote/speaker-diarization-3.1
 
   # IO layout
   OUTDIR: /app/output
@@ -44,7 +51,9 @@ services:
       retries: 10
 
   whisperx-api:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.api
     restart: unless-stopped
     depends_on:
       redis:
@@ -82,7 +91,9 @@ services:
       start_period: 15s
 
   whisperx-worker:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
     restart: unless-stopped
     depends_on:
       redis:
@@ -90,7 +101,7 @@ services:
     deploy: {}
     gpus:
       - device: "all"
-    volumes: *common_volumes
+    volumes: *worker_volumes
     env_file:
       - .env
     environment:
@@ -101,17 +112,19 @@ services:
     command: ["sh", "-lc", 'rq worker -u "$$REDIS_URL" "$$QUEUE_NAME"']
 
   whisperx-cli:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
     profiles: ["cli"]
     restart: "no"
     deploy: {}
     gpus:
       - device: "all"
-    volumes: *common_volumes
+    volumes: *worker_volumes
     env_file:
       - .env
     environment:
       <<: *common_env
       DEVICE: cuda
       COMPUTE_TYPE: float16
-    command: ["offline-whisperx", "--help"]
+    command: ["whisperx"]

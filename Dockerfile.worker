@@ -1,0 +1,21 @@
+# GPU worker built on a public WhisperX container image.
+# This keeps WhisperX + pyannote dependency details out of our codebase.
+FROM ghcr.io/jim60105/whisperx:no_model
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Ensure runtime tools are present (ffmpeg is commonly needed for mp3/mp4/etc).
+# Base image may already include it; this is a best-effort no-op if so.
+RUN (command -v apt-get >/dev/null 2>&1 && (apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*)) || true
+
+WORKDIR /app
+COPY pyproject.toml requirements.worker.txt /app/
+COPY offline_whisperx /app/offline_whisperx
+
+RUN python -m pip install -U pip \
+ && python -m pip install --no-cache-dir -r requirements.worker.txt
+
+# Default command is overridden by docker-compose to start rq worker.
+CMD ["python", "-c", "print('worker image built; override CMD in compose')"]
