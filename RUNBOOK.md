@@ -25,7 +25,9 @@ mkdir -p cache data output
 # The upstream WhisperX image commonly runs as uid 1001.
 sudo chown -R 1001:0 cache data output || true
 
-# If you need diarization, accept pyannote model terms on Hugging Face and set a token.
+# Diarization is always enabled in this setup.
+# Accept the pyannote model terms on Hugging Face and set a token:
+# - https://hf.co/pyannote/speaker-diarization-3.1
 export HF_TOKEN="hf_..."
 
 docker compose --profile cli run --rm whisperx-cli \

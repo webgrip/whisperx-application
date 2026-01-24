@@ -19,7 +19,7 @@ docker-logs:
 	docker compose logs -f --tail=200
 
 # One-time cache warm-up (run on an online machine).
-# Set HF_TOKEN if you want diarization cache warmed.
+# Requires HF_TOKEN + accepted pyannote terms.
 cache-warm:
 	@mkdir -p cache output/warmup
 	@if [ "$$(id -u)" = "0" ]; then \

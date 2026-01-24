@@ -139,7 +139,7 @@ def create_job(
     chunk_seconds: float | None = 1800.0,
     overlap_seconds: float = 10.0,
     do_align: bool = True,
-    do_diarize: bool = False,
+    do_diarize: bool = True,
 ) -> JobCreateResponse:
     job_id, job, _outdir = _enqueue_transcription(
         file=file,
@@ -158,7 +158,7 @@ def transcribe_sync(
     chunk_seconds: float | None = 1800.0,
     overlap_seconds: float = 10.0,
     do_align: bool = True,
-    do_diarize: bool = False,
+    do_diarize: bool = True,
     timeout_seconds: float = 300.0,
     poll_interval_seconds: float = 0.5,
 ) -> SyncTranscribeResponse:

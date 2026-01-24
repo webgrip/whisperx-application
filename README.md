@@ -26,7 +26,8 @@ mkdir -p cache data output
 sudo chown -R 1001:0 cache data output || true
 
 # Put a small sample in ./data (any supported audio format)
-# Then run a warm-up job that exercises diarization (requires HF terms acceptance + token):
+# D i a r i z a t i o n  is always enabled in this setup.
+# You must accept the model terms on Hugging Face and provide a token:
 export HF_TOKEN="hf_..."
 docker compose --profile cli run --rm whisperx-cli \
   --model large-v2 \

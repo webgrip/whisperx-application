@@ -14,6 +14,12 @@ x-common-env: &common_env
   HF_HUB_CACHE: /.cache/huggingface/hub
   WHISPERX_MODEL_DIR: /.cache
   PYANNOTE_CACHE: /.cache/pyannote
+  TORCH_HOME: /.cache/torch
+
+  # Token for gated Hugging Face repos (e.g. pyannote diarization). We wire this
+  # explicitly so it's present even if `env_file` is missing on a VM.
+  HF_TOKEN: ${HF_TOKEN-}
+  HUGGINGFACE_HUB_TOKEN: ${HF_TOKEN-}
 
   # Avoid Matplotlib trying to create cache dirs under /.cache (some libs import it transitively).
   MPLCONFIGDIR: /tmp/matplotlib
