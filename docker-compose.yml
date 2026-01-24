@@ -118,7 +118,8 @@ services:
       DEVICE: cuda
       COMPUTE_TYPE: float16
     # IMPORTANT: escape with $$ so Compose does not interpolate.
-    command: ["sh", "-lc", 'rq worker -u "$$REDIS_URL" "$$QUEUE_NAME"']
+    # Do NOT use `sh -l` here: login shells can reset PATH and hide /venv/bin/rq.
+    command: ["sh", "-c", 'rq worker -u "$$REDIS_URL" "$$QUEUE_NAME"']
 
   whisperx-cli:
     build:
