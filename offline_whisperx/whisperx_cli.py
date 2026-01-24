@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+from dataclasses import replace
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -78,13 +79,19 @@ def run_whisperx(
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 
-    if cfg.diarize and not (cfg.hf_token or os.environ.get("HF_TOKEN")):
-        # WhisperX typically needs a token argument for diarization even if caches exist.
-        raise RuntimeError("Diarization requested but no HF token provided (set HF_TOKEN)")
-
     merged_env = os.environ.copy()
     if extra_env:
         merged_env.update(extra_env)
+
+    if cfg.diarize and not cfg.hf_token:
+        # Upstream WhisperX CLI expects --hf_token for diarization. It does not reliably
+        # auto-read tokens from the environment for the diarization pipeline.
+        token = merged_env.get("HF_TOKEN") or merged_env.get("HUGGINGFACE_HUB_TOKEN")
+        if not token:
+            raise RuntimeError(
+                "Diarization requested but no HF token provided (set HF_TOKEN or HUGGINGFACE_HUB_TOKEN)"
+            )
+        cfg = replace(cfg, hf_token=token)
 
     cmd: list[str] = ["whisperx", *build_whisperx_args(audio_path, outdir, cfg)]
 

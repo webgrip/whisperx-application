@@ -35,6 +35,7 @@ docker compose --profile cli run --rm whisperx-cli \
   --output_dir /app/output/warmup \
   --output_format json \
   --diarize \
+  --hf_token "$HF_TOKEN" \
   /app/data/sample.wav
 ```
 

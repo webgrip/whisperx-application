@@ -34,6 +34,7 @@ docker compose --profile cli run --rm whisperx-cli \
   --output_dir /app/output/warmup \
   --output_format json \
   --diarize \
+  --hf_token "$HF_TOKEN" \
   /app/data/sample.wav
 ```
 
@@ -50,7 +51,7 @@ Submit a job:
 
 ```bash
 curl -F "file=@/path/to/audio.wav" \
-  "http://localhost:8000/jobs/transcribe?chunk_seconds=1800&overlap_seconds=10&do_align=true&do_diarize=false"
+  "http://localhost:8000/jobs/transcribe?chunk_seconds=1800&overlap_seconds=10&do_align=true"
 ```
 
 Poll and fetch results:
