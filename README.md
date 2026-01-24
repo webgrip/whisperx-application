@@ -64,6 +64,9 @@ Poll and fetch results:
 ```bash
 curl "http://localhost:8000/jobs/<job_id>"
 curl "http://localhost:8000/jobs/<job_id>/result"
+
+# Tail the worker log for a running job
+curl "http://localhost:8000/jobs/<job_id>/log?lines=200"
 ```
 
 More details: RUNBOOK.md

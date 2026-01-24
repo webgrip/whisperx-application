@@ -9,6 +9,7 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from redis import Redis
 from rq import Queue
@@ -58,6 +59,19 @@ def _uploads_dir() -> Path:
 def _jobs_dir() -> Path:
     ensure_dir(SETTINGS.jobs_dir)
     return SETTINGS.jobs_dir
+
+
+def _tail_file(path: Path, *, lines: int = 200, max_bytes: int = 200_000) -> str:
+    if lines <= 0:
+        return ""
+    if not path.exists():
+        return ""
+    data = path.read_bytes()
+    if len(data) > max_bytes:
+        data = data[-max_bytes:]
+    text = data.decode("utf-8", errors="replace")
+    parts = text.splitlines()
+    return "\n".join(parts[-lines:]) + ("\n" if parts else "")
 
 
 def _save_upload(upload: UploadFile, dest: Path) -> None:
@@ -213,6 +227,7 @@ def transcribe_sync(
                     "error": "Job failed",
                     "job_id": job_id,
                     "log_path": str(log_path),
+                    "log_tail": _tail_file(log_path, lines=200),
                 },
             )
 
@@ -226,6 +241,17 @@ def transcribe_sync(
             raise HTTPException(status_code=500, detail={"error": "Result file not found", "job_id": job_id})
 
         return SyncTranscribeResponse(job_id=job_id, result=json.loads(result_path.read_text(encoding="utf-8")))
+
+
+@app.get("/jobs/{job_id}/log", response_class=PlainTextResponse)
+def job_log(job_id: str, lines: int = 200) -> str:
+    """Return tail of the worker WhisperX log for a job."""
+
+    outdir = _jobs_dir() / job_id
+    log_path = outdir / "whisperx.log"
+    if not log_path.exists():
+        raise HTTPException(status_code=404, detail="Log not found")
+    return _tail_file(log_path, lines=lines)
 
 
 @app.get("/jobs/{job_id}", response_model=JobStatusResponse)

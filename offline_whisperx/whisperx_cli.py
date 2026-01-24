@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
+import time
 from dataclasses import replace
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 
 @dataclass(frozen=True)
@@ -23,6 +26,20 @@ class WhisperXCliConfig:
     hf_token: str | None = None
     diarize_model: str | None = None
     output_format: str = "json"
+
+
+def redact_cmd(argv: list[str]) -> list[str]:
+    redacted: list[str] = []
+    skip_next = False
+    for item in argv:
+        if skip_next:
+            redacted.append("***")
+            skip_next = False
+            continue
+        redacted.append(item)
+        if item == "--hf_token":
+            skip_next = True
+    return redacted
 
 
 def build_whisperx_args(audio_path: Path, outdir: Path, cfg: WhisperXCliConfig) -> list[str]:
@@ -74,6 +91,8 @@ def run_whisperx(
     outdir: Path,
     cfg: WhisperXCliConfig,
     extra_env: dict[str, str] | None = None,
+    log_paths: list[Path] | None = None,
+    line_callback: Callable[[str], None] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     audio_path = Path(audio_path)
     outdir = Path(outdir)
@@ -95,18 +114,43 @@ def run_whisperx(
 
     cmd: list[str] = ["whisperx", *build_whisperx_args(audio_path, outdir, cfg)]
 
-    def _redact_cmd(argv: list[str]) -> list[str]:
-        redacted: list[str] = []
-        skip_next = False
-        for item in argv:
-            if skip_next:
-                redacted.append("***")
-                skip_next = False
-                continue
-            redacted.append(item)
-            if item == "--hf_token":
-                skip_next = True
-        return redacted
+    if log_paths:
+        log_files = []
+        for p in log_paths:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            log_files.append(p.open("a", encoding="utf-8"))
+
+        started = time.monotonic()
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                text=True,
+                env=merged_env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                bufsize=1,
+            )
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                for f in log_files:
+                    f.write(line)
+                    f.flush()
+                # Also surface in container logs for `docker compose logs -f whisperx-worker`.
+                sys.stdout.write(line)
+                sys.stdout.flush()
+                if line_callback:
+                    line_callback(line.rstrip("\n"))
+
+            rc = proc.wait()
+            if rc != 0:
+                raise subprocess.CalledProcessError(rc, redact_cmd(cmd))
+            return subprocess.CompletedProcess(cmd, rc, stdout=f"(streamed) elapsed={time.monotonic() - started:.1f}s")
+        finally:
+            for f in log_files:
+                try:
+                    f.close()
+                except Exception:
+                    pass
 
     try:
         return subprocess.run(
@@ -121,7 +165,7 @@ def run_whisperx(
         # Avoid leaking tokens into logs/tracebacks.
         raise subprocess.CalledProcessError(
             e.returncode,
-            _redact_cmd(list(e.cmd) if isinstance(e.cmd, (list, tuple)) else cmd),
+            redact_cmd(list(e.cmd) if isinstance(e.cmd, (list, tuple)) else cmd),
             output=e.stdout,
             stderr=e.stderr,
         ) from None

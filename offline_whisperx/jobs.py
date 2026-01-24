@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -69,24 +70,33 @@ def transcribe_job(
     input_path_p = Path(input_path)
     _job_meta_update(status="running", progress=0.0, detail="Starting", started_at=started_at)
 
+    global_log = outdir_path / "whisperx.log"
+    ensure_dir(global_log.parent)
+
     if chunk_seconds is None:
         out_wx = outdir_path / "whisperx"
         ensure_dir(out_wx)
 
-        # Run whisperx and capture logs for debugging.
-        try:
-            proc = run_whisperx(
-                audio_path=input_path_p,
-                outdir=out_wx,
-                cfg=cfg,
-                extra_env={
-                    "PYANNOTE_CACHE": pyannote_cache,
-                },
-            )
-            (outdir_path / "whisperx.log").write_text(proc.stdout or "", encoding="utf-8")
-        except subprocess.CalledProcessError as e:
-            (outdir_path / "whisperx.log").write_text(e.stdout or "", encoding="utf-8")
-            raise
+        last_meta = 0.0
+
+        def on_line(line: str) -> None:
+            nonlocal last_meta
+            now = time.monotonic()
+            if now - last_meta >= 2.0 and line.strip():
+                _job_meta_update(detail=f"WhisperX: {line.strip()[:240]}")
+                last_meta = now
+
+        _job_meta_update(detail="Running WhisperX")
+        run_whisperx(
+            audio_path=input_path_p,
+            outdir=out_wx,
+            cfg=cfg,
+            extra_env={
+                "PYANNOTE_CACHE": pyannote_cache,
+            },
+            log_paths=[global_log],
+            line_callback=on_line,
+        )
 
         # WhisperX writer names output files based on input audio basename.
         expected = out_wx / f"{input_path_p.stem}.json"
@@ -136,19 +146,28 @@ def transcribe_job(
         # keeps behavior aligned with upstream WhisperX and the cache-based offline flow.
         chunk_out = chunk_work / f"out_{idx:04d}"
         ensure_dir(chunk_out)
-        try:
-            proc = run_whisperx(
-                audio_path=chunk.path,
-                outdir=chunk_out,
-                cfg=cfg,
-                extra_env={
-                    "PYANNOTE_CACHE": pyannote_cache,
-                },
-            )
-            (chunk_out / "whisperx.log").write_text(proc.stdout or "", encoding="utf-8")
-        except subprocess.CalledProcessError as e:
-            (chunk_out / "whisperx.log").write_text(e.stdout or "", encoding="utf-8")
-            raise
+
+        chunk_log = chunk_out / "whisperx.log"
+        last_meta = 0.0
+
+        def on_line(line: str) -> None:
+            nonlocal last_meta
+            now = time.monotonic()
+            if now - last_meta >= 2.0 and line.strip():
+                _job_meta_update(detail=f"WhisperX: {line.strip()[:240]}")
+                last_meta = now
+
+        _job_meta_update(detail=f"Running WhisperX chunk {idx + 1}/{len(chunks)}")
+        run_whisperx(
+            audio_path=chunk.path,
+            outdir=chunk_out,
+            cfg=cfg,
+            extra_env={
+                "PYANNOTE_CACHE": pyannote_cache,
+            },
+            log_paths=[chunk_log, global_log],
+            line_callback=on_line,
+        )
 
         expected = chunk_out / f"{chunk.path.stem}.json"
         if expected.exists():
